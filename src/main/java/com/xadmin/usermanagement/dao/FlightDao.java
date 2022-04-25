@@ -1,7 +1,5 @@
 package com.xadmin.usermanagement.dao;
 
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,70 +12,47 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
 import com.xadmin.usermanagement.bean.Login;
 import com.xadmin.usermanagement.bean.Flight;
 
+public class FlightDao {
 
-public class FlightDao extends HttpServlet {
-
-	private String jdbcURL = "jdbc:mysql://localhost:3306/flightdb?useSSL=false";
-	private String jdbcUsername = "root";
-	private String jdbcPassword = "admin123";
-	
-//	private String jdbcURL;
-//	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException{
-//		
-//		PrintWriter out = response.getWriter();
-//		out.print("Hi JDBC");
-//		
-//		ServletContext ctx = getServletContext();
-//		jdbcURL = ctx.getInitParameter("jdbcURL");
-//		System.out.println("JDBC URL + " + jdbcURL);
-//	}
-	
-
-	private static final String INSERT_FLIGHT_SQL = "INSERT INTO flight" + "  (departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path) VALUES " + " (?, ?, ?, ?, ?,?,?, ?, ?);";
+	private static final String INSERT_FLIGHT_SQL = "INSERT INTO flight"
+			+ "  (departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path) VALUES "
+			+ " (?, ?, ?, ?, ?,?,?, ?, ?);";
 	private static final String SELECT_FLIGHT_BY_ID = "select departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where id =?";
 	private static final String SELECT_ALL_FLIGHT = "select * from flight";
 	private static final String DELETE_FLIGHT_SQL = "delete from flight where id = ?;";
 	private static final String UPDATE_FLIGHT_SQL = "update flight set departure_city = ?,arrival_city= ?, cost =?, start_time=?, end_time=?, departure_time=?, arrival_time=?, legs=?, path=? where id = ?;";
 	private static final String CHECK_MANAGER_SQL = "select * from manager where username = ? and password = ?";
 	private static final String SELECT_TIME_FILTER = "select id,departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path from flight where (case when start_time<=end_time then start_time<? and end_time>? else start_time<? or end_time>? end)";
-	private static final String ONLY_DEPARTURE_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and departure_time>'05:00:00' and departure_time<'17:00:00'" ;
+	private static final String ONLY_DEPARTURE_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and departure_time>'05:00:00' and departure_time<'17:00:00'";
 	private static final String ONLY_ARRIVAL_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where arrival_city=? and departure_time>'05:00:00' and departure_time<'17:00:00'";
-	private static final String DEPARTURE_AND_ARRIVAL_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and arrival_city=? and departure_time>'05:00:00' and departure_time<'17:00:00'" ;
-	private static final String ONLY_DEPARTURE_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and (departure_time>='17:00:00' or departure_time<='05:00:00')" ;
+	private static final String DEPARTURE_AND_ARRIVAL_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and arrival_city=? and departure_time>'05:00:00' and departure_time<'17:00:00'";
+	private static final String ONLY_DEPARTURE_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and (departure_time>='17:00:00' or departure_time<='05:00:00')";
 	private static final String ONLY_ARRIVAL_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where arrival_city=? and (departure_time>='17:00:00' or departure_time<='05:00:00')";
-	private static final String DEPARTURE_AND_ARRIVAL_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and arrival_city=? and (departure_time>='17:00:00' or departure_time<='05:00:00')" ;
+	private static final String DEPARTURE_AND_ARRIVAL_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_city=? and arrival_city=? and (departure_time>='17:00:00' or departure_time<='05:00:00')";
 	private static final String ONLY_DAY = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_time>'05:00:00' and departure_time<'17:00:00'";
-	private static final String ONLY_NIGHT="select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_time>='17:00:00' or departure_time<='05:00:00'";
-	public FlightDao() {}
+	private static final String ONLY_NIGHT = "select id,departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path from flight where departure_time>='17:00:00' or departure_time<='05:00:00'";
 
-	protected Connection getConnection() {
+	protected Connection getConnection(ServletContext sc) {
+		String jdbcURL = (String) sc.getAttribute("jdbcURL");
+		String jdbcUsername = (String) sc.getAttribute("jdbcUsername");
+		String jdbcPassword = (String) sc.getAttribute("jdbcPassword");
 		Connection connection = null;
 		try {
-			Class.forName("com.mysql.cj.jdbc.Driver");
 			connection = DriverManager.getConnection(jdbcURL, jdbcUsername, jdbcPassword);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return connection;
 	}
 
-//	public void insertFlight(Flight flight) throws SQLException {
-	public void insertFlight(Flight flight) throws SQLException {
-		System.out.println(INSERT_FLIGHT_SQL);
-		
-		try (Connection connection = getConnection();
+	// public void insertFlight(Flight flight) throws SQLException {
+	public void insertFlight(Flight flight, ServletContext sc) throws SQLException {
+		// // System.out.println(INSERT_FLIGHT_SQL);
+
+		try (Connection connection = getConnection(sc);
 				PreparedStatement preparedStatement = connection.prepareStatement(INSERT_FLIGHT_SQL)) {
 			preparedStatement.setString(1, flight.getDeparture_city());
 			preparedStatement.setString(2, flight.getArrival_city());
@@ -88,45 +63,41 @@ public class FlightDao extends HttpServlet {
 			preparedStatement.setString(7, flight.getArrival_time());
 			preparedStatement.setInt(8, flight.getLegs());
 			preparedStatement.setString(9, flight.getPath());
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			preparedStatement.executeUpdate();
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 	}
-	
-	
 
-	
-	public boolean validate(Login login) {
+	public boolean validate(Login login, ServletContext sc) {
 		boolean status = false;
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
-			// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(CHECK_MANAGER_SQL);) {
-			System.out.println(preparedStatement);
-		
+				// Step 2:Create a statement using connection object
+				PreparedStatement preparedStatement = connection.prepareStatement(CHECK_MANAGER_SQL);) {
+			// System.out.println(preparedStatement);
+
 			preparedStatement.setString(1, login.getUsername());
 			preparedStatement.setString(2, login.getPassword());
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
 			status = rs.next();
 
-			}
-		catch (SQLException e) {
+		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return status;
 	}
 
-	public Flight selectFlight(int id) {
+	public Flight selectFlight(int id, ServletContext sc) {
 		Flight flight = null;
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 				// Step 2:Create a statement using connection object
 				PreparedStatement preparedStatement = connection.prepareStatement(SELECT_FLIGHT_BY_ID);) {
 			preparedStatement.setInt(1, id);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			// Step 3: Execute the query or update query
 			ResultSet rs = preparedStatement.executeQuery();
 
@@ -141,7 +112,8 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flight = new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time, arrival_time, legs, path);
+				flight = new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path);
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
@@ -149,16 +121,16 @@ public class FlightDao extends HttpServlet {
 		return flight;
 	}
 
-	public List<Flight> selectAllFlights() {
+	public List<Flight> selectAllFlights(ServletContext sc) {
 
 		// using try-with-resources to avoid closing resources (boiler plate code)
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FLIGHT);) {
-			System.out.println(preparedStatement);
+				PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_FLIGHT);) {
+			// System.out.println(preparedStatement);
 			// Step 3: Execute the query or update query
 			ResultSet rs = preparedStatement.executeQuery();
 
@@ -174,7 +146,8 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
@@ -183,28 +156,29 @@ public class FlightDao extends HttpServlet {
 	}
 
 	public static String getTime(LocalTime ldt) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        return formatter.format(ldt);
-    }
-	public List<Flight> filterFlight(){
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+		return formatter.format(ldt);
+	}
+
+	public List<Flight> filterFlight(ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(SELECT_TIME_FILTER);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(SELECT_TIME_FILTER);) {
 			LocalTime locT;
 			LocalTime time = LocalTime.now();
 			locT = LocalTime.parse(getTime(time));
 			Time t = Time.valueOf(locT);
-			System.out.println(preparedStatement);
-			preparedStatement.setTime(1,t);
-			preparedStatement.setTime(2,t);
-			preparedStatement.setTime(3,t);
-			preparedStatement.setTime(4,t);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
+			preparedStatement.setTime(1, t);
+			preparedStatement.setTime(2, t);
+			preparedStatement.setTime(3, t);
+			preparedStatement.setTime(4, t);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -217,28 +191,27 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
-	}
-	
 
-		
-	public List<Flight> departureday(String departuree_city){
+	}
+
+	public List<Flight> departureday(String departuree_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DEPARTURE_DAY);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DEPARTURE_DAY);) {
 			preparedStatement.setString(1, departuree_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -251,27 +224,27 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	public List<Flight> departurenight(String departuree_city){
+
+	public List<Flight> departurenight(String departuree_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DEPARTURE_NIGHT);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DEPARTURE_NIGHT);) {
 			preparedStatement.setString(1, departuree_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -284,31 +257,27 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	
-	
-	
-	
-	public List<Flight> arrivalday(String arrivall_city){
+
+	public List<Flight> arrivalday(String arrivall_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_ARRIVAL_DAY);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_ARRIVAL_DAY);) {
 			preparedStatement.setString(1, arrivall_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -321,27 +290,27 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	public List<Flight> arrivalnight(String arrivall_city){
+
+	public List<Flight> arrivalnight(String arrivall_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_ARRIVAL_NIGHT);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_ARRIVAL_NIGHT);) {
 			preparedStatement.setString(1, arrivall_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -354,30 +323,28 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	
-	
-	public List<Flight> departureAndArrivalDay(String departuree_city, String arrivall_city){
+
+	public List<Flight> departureAndArrivalDay(String departuree_city, String arrivall_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(DEPARTURE_AND_ARRIVAL_DAY);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(DEPARTURE_AND_ARRIVAL_DAY);) {
 			preparedStatement.setString(1, departuree_city);
 			preparedStatement.setString(2, arrivall_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -390,29 +357,28 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	
-	public List<Flight> departureAndArrivalNight(String departuree_city, String arrivall_city){
+
+	public List<Flight> departureAndArrivalNight(String departuree_city, String arrivall_city, ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(DEPARTURE_AND_ARRIVAL_NIGHT);) {
+				PreparedStatement preparedStatement = connection.prepareStatement(DEPARTURE_AND_ARRIVAL_NIGHT);) {
 			preparedStatement.setString(1, departuree_city);
 			preparedStatement.setString(2, arrivall_city);
-			System.out.println(preparedStatement);
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -425,26 +391,26 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	public List<Flight> day(){
+
+	public List<Flight> day(ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DAY);) {
-			System.out.println(preparedStatement);
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_DAY);) {
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -457,27 +423,26 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	
-	public List<Flight> night(){
+
+	public List<Flight> night(ServletContext sc) {
 		List<Flight> flights = new ArrayList<>();
 		// Step 1: Establishing a Connection
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 
 				// Step 2:Create a statement using connection object
-			PreparedStatement preparedStatement = connection.prepareStatement(ONLY_NIGHT);) {
-			System.out.println(preparedStatement);
+				PreparedStatement preparedStatement = connection.prepareStatement(ONLY_NIGHT);) {
+			// System.out.println(preparedStatement);
 			ResultSet rs = preparedStatement.executeQuery();
-			
+
 			// Step 4: Process the ResultSet object.
 			while (rs.next()) {
 				int id = rs.getInt("id");
@@ -490,25 +455,19 @@ public class FlightDao extends HttpServlet {
 				String arrival_time = rs.getString("arrival_time");
 				int legs = rs.getInt("legs");
 				String path = rs.getString("path");
-				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time,departure_time,arrival_time, legs, path));
+				flights.add(new Flight(id, departure_city, arrival_city, cost, start_time, end_time, departure_time,
+						arrival_time, legs, path));
 			}
 		} catch (SQLException e) {
 			printSQLException(e);
 		}
 		return flights;
-		
+
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	public boolean deleteFlight(int id) throws SQLException {
+
+	public boolean deleteFlight(int id, ServletContext sc) throws SQLException {
 		boolean rowDeleted;
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 				PreparedStatement statement = connection.prepareStatement(DELETE_FLIGHT_SQL);) {
 			statement.setInt(1, id);
 			rowDeleted = statement.executeUpdate() > 0;
@@ -516,11 +475,11 @@ public class FlightDao extends HttpServlet {
 		return rowDeleted;
 	}
 
-	public boolean updateFlight(Flight flight) throws SQLException {
+	public boolean updateFlight(Flight flight, ServletContext sc) throws SQLException {
 		boolean rowUpdated;
-		try (Connection connection = getConnection();
+		try (Connection connection = getConnection(sc);
 				PreparedStatement statement = connection.prepareStatement(UPDATE_FLIGHT_SQL);) {
-			System.out.println("updated USer:"+statement);
+			System.out.println("Updated User:" + statement);
 			statement.setString(1, flight.getDeparture_city());
 			statement.setString(2, flight.getArrival_city());
 			statement.setInt(3, flight.getCost());
@@ -530,7 +489,7 @@ public class FlightDao extends HttpServlet {
 			statement.setString(7, flight.getArrival_time());
 			statement.setInt(8, flight.getLegs());
 			statement.setString(9, flight.getPath());
-			statement.setInt(10,flight.getId());
+			statement.setInt(10, flight.getId());
 			rowUpdated = statement.executeUpdate() > 0;
 		}
 		return rowUpdated;
